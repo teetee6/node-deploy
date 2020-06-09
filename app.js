@@ -8,6 +8,7 @@ const passport = require('passport');
 const helmet = require('helmet');
 const hpp = require('hpp');
 const RedisStore = require('connect-redis')(session);
+const redis = require('redis');
 require('dotenv').config();
 
 const pageRouter = require('./routes/page');
@@ -39,7 +40,14 @@ app.use('/img', express.static(path.join(__dirname,'uploads')));
 app.use(express.json());
 app.use(express.urlencoded({extended:false}));
 app.use(cookieParser(process.env.COOKIE_SECRET));
-const sessionOption = app.use(session({
+
+const redisClient = redis.createClient(process.env.REDIS_PORT, process.env.REDIS_HOST);
+const redisConnectionResult = redisClient.auth(process.env.REDIS_PASSWORD, err => {
+    if(err) console.log(err, " 에러 발생했습니다");
+});
+console.log("redis 연결 결과는? - ", redisConnectionResult);
+
+const sessionOption = {
     resave: false,
     saveUninitialized: false,
     secret: process.env.COOKIE_SECRET,
@@ -48,12 +56,13 @@ const sessionOption = app.use(session({
         secure: false,
     },
     store: new RedisStore({
+        client: redisClient,
         host: process.env.REDIS_HOST,
         port: process.env.REDIS_PORT,
         pass: process.env.REDIS_PASSWORD,
         logErrors: true,
     }),
-}));
+};
 if ( process.env.NODE_ENV === 'production') {
     sessionOption.proxy = true;
     // sessionOption.cookie.secure = true;
